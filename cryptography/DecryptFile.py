@@ -22,30 +22,43 @@ if not os.path.exists(decrypted_file_folder):
             
     
 if os.path.exists(encrypted_file_folder) and os.path.isdir(encrypted_file_folder):
-    filenames = sorted(os.listdir(encrypted_file_folder))
+    filenames = sorted(os.listdir(encrypted_file_folder), reverse=True)
     
     current_base_name = None
-    first_file_in_group = True
+    first_file = True
 
     try:
-        # Iterate over files in the folder
-        for encrypted_file in filenames:
-                with open(encrypted_file, 'rb') as f:
-                    data = f.read()
+        with open(decrypted_file, 'ab') as df:
+            df.write("\n!!!!!!!!!!!!!!!!!!!! START OF DECRYPTED DATA !!!!!!!!!!!!!!!!!!!!\n\n\n".encode())
+            
+            # Iterate over files in the folder
+            for encrypted_file in filenames:         
+                source_file_path = os.path.join(encrypted_file_folder, encrypted_file) 
+                with open(source_file_path, 'rb') as ef:
+                    data = ef.read()
                 fernet = Fernet(key)
                 decrypted = fernet.decrypt(data)
-                with open(decrypted_file, 'ab') as f:
-                    if not first_file_in_group and not current_base_name == None:
-                        f.write("\n=== END OF FILE ===\n\n")
-                    # Determine base name without (number)
-                    base_name = os.path.splitext(encrypted_file)[0].split('(')[0].strip
-                    if base_name != current_base_name:               
-                        # Start a new group
-                        current_base_name = base_name
-                        f.write(f"### File: {encrypted_file} ###\n")
-                        first_file_in_group = False
-                    #copy decrypted content    
-                    f.write(decrypted)
+
+                # Determine base name without (number)
+                base_name = os.path.splitext(encrypted_file)[0].split('(')[0].strip()
+
+                if base_name != current_base_name:    
+
+                    # Seperate the last entry of previous group
+                    if not first_file and not current_base_name == None:
+                        df.write("\n=== END OF FILE ===\n\n".encode())             
+                    # Start a new group
+                    current_base_name = base_name
+                    df.write(f"### File: {encrypted_file} ###\n\n".encode())
+                    first_file = False
+    
+                # Decrypted content    
+                df.write(decrypted)
+                df.write("\n".encode())
+                
+        # Denote end of decrypted file
+            df.write("\n\n!!!!!!!!!!!!!!!!!!!! END OF DECRYPTED DATA !!!!!!!!!!!!!!!!!!!!\n\n".encode())
+    
     except Exception as e:
         with open(log_file, 'w') as log:
             log.write(f"Error: {str(e)}\n")
