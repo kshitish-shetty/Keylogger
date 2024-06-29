@@ -133,8 +133,6 @@ def send_email(file_list, subject, body):
         logging.exception(e)
         pass
 
- # get the computer information
-
 # Get System information
 def computer_information():
     try:
